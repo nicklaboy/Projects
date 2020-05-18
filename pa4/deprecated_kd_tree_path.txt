@@ -1,0 +1,117 @@
+    def preprocess_grayscale_sides_kd(self):
+        print("Pre-processing Grayscale")
+        left_side_patches = []
+        right_side_patches = []
+        patch_index_left, patch_index_right = 0, 0
+        for y in range(self.height):
+            for x in range(self.width):
+                pixel_coordinate = (x, y)
+                pixel_neighbors = self.get_pixel_neighbors(pixel_coordinate)
+
+                if x < int(self.width / 2):
+                    pixel_n = list(filter(self.filter_left_overlap, pixel_neighbors))
+                else:
+                    pixel_n = list(filter(self.filter_right_overlap, pixel_neighbors))
+
+                if len(pixel_n) == 0 or len(pixel_n) < 9:
+
+                    continue
+
+                pixel_patch = []
+                for pixel_neighbor in pixel_n:
+                    (x_p, y_p) = pixel_neighbor
+                    pixel_patch_element = [(self.img_grayscale_RGB_values[x_p + (self.width * y_p)])[0]]
+                    pixel_patch.append(pixel_patch_element)
+                pixel_patch_np = numpy.array(pixel_patch)
+                pixel_patch_ = pixel_patch_np.flatten()
+
+                #patch_index = x + (self.width * y)
+
+                if x < int(self.width / 2):
+                    left_side_patches.append(pixel_patch_)
+                    self.left_side_patch_map[patch_index_left] = (x, y)
+                    patch_index_left = patch_index_left + 1
+                else:
+                    right_side_patches.append(pixel_patch_)
+                    self.right_side_patch_map[patch_index_right] = (x, y)
+                    patch_index_right = patch_index_right + 1
+        # right_side_patches_ = numpy.array(right_side_patches).T
+        self.right_side_patches = right_side_patches
+        self.left_side_patches = numpy.array(left_side_patches)
+        print("Pre-processing Complete: ", len(self.right_side_patches), " | ", len(self.left_side_patches))
+
+    def selectColorForRightSide(self, index_of_patches):
+        potential_middle_pixel_colors = []
+        pixel_color_mapping = {}
+        pixel_coordinate_map = {}
+        for index in index_of_patches:
+            pixel_left_side_coordinate = self.left_side_patch_map[index]
+            (x_l, y_l) = pixel_left_side_coordinate
+            representative_color = self.img_RGB_values[x_l + (self.width * y_l)]
+            potential_middle_pixel_colors.append(representative_color)
+
+            pixel_color_mapping[index] = representative_color
+            pixel_coordinate_map[index] = pixel_left_side_coordinate
+
+        frequency_of_rgb = Counter(potential_middle_pixel_colors)
+        # print(index_of_patches)
+        # print("M: ", pixel_color_mapping)
+        # print("S: ", pixel_coordinate_map)
+
+        # print(frequency_of_rgb)
+        max_frequency_in_RGB = max(v for _, v in frequency_of_rgb.items())
+        list_of_coordinates = [key for key, value in frequency_of_rgb.items() if value == max_frequency_in_RGB]
+        # print("List of coord: ", list_of_coordinates)
+
+        pixel_coordinate_to_recolor = None
+        if len(list_of_coordinates) >= 1:  # break ties in order
+            for id in index_of_patches:
+                if pixel_color_mapping[id] not in list_of_coordinates:
+                    continue
+                else:
+                    pixel_coordinate_to_recolor = pixel_coordinate_map[id]
+                    break
+        else:  # 0 index is most similar color, so if no ties can be broken default to most similar
+            pixel_coordinate_to_recolor = self.left_side_patch_map[index_of_patches[0]]
+
+        (x_l, y_l) = pixel_coordinate_to_recolor
+        pixel_ = self.img_RGB_values[x_l + (self.width * y_l)]
+        representative_color_ = self.representativePixelColor(pixel_) #self.img_RGB_values[x_l + (self.width * y_l)]
+        # print("Recolor: ", pixel_coordinate_to_recolor, " w/ ", representative_color_)
+        return representative_color_
+
+    def getIDsOfClosestPatches(self, all_minimum_distances):
+        k_minimum_ids = list(numpy.argpartition(all_minimum_distances, 6))
+        subset_k_minimum_ids = k_minimum_ids[:6]
+        minimum_distance = list(all_minimum_distances[subset_k_minimum_ids])
+
+        zipped_minimum_params = zip(minimum_distance, subset_k_minimum_ids)
+        sorted_minimum_params = sorted(zipped_minimum_params)
+        minimum_params_association = zip(*sorted_minimum_params)
+
+        sorted_ids_by_minimum_distances = [list(elem) for elem in minimum_params_association]
+
+        return sorted_ids_by_minimum_distances
+
+    def recolor_right_side(self, iteration, color):
+        (x_r, y_r) = self.right_side_patch_map[iteration]
+        self.image_edit[x_r, y_r] = color
+
+    def computeSimilarPatches(self):
+        print("Recoloring Right Side Patches...")
+        iteration = 0
+        for right_side_patch in self.right_side_patches:
+            # print("Patch: ", right_side_patch)
+            temp_r_patch = [right_side_patch]
+            temp_r_patch_np = numpy.array(temp_r_patch)
+            tree = spatial.cKDTree(temp_r_patch_np)
+            all_minimum_distances, temp = tree.query(self.left_side_patches)
+            min_dist, min_id = self.getIDsOfClosestPatches(all_minimum_distances)
+            color = self.selectColorForRightSide(min_id)
+            self.recolor_right_side(iteration, color)
+            if iteration % int((self.width/2 * 100)) == 0:
+                print("Recoloring...")
+                self.original_image.save(self.recolor_right_img_file_path)
+            iteration = iteration + 1
+        self.original_image.save(self.recolor_right_img_file_path)
+        print("Right Side Recoloring Complete...")
