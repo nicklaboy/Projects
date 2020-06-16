@@ -1,0 +1,5 @@
+MINESWEEPER: Intro to AI
+This project was built on top of project. For this, we had to use two different paradigms: Minimizing
+Cost (minimizes the expected number of mines stepped on) and Minimizing Risk (minimizes the expected
+numbers of squares you habe unknowingly step on). With thesetwo paradgims we had to essestially 
+assess the future, which involved probability.
