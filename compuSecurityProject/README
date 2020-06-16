@@ -1,0 +1,3 @@
+For this project, I had to create one of four different cryptographic algorithms that was then used in a bigger, server/ client. Messages
+would be encrypted and decrypted by the four different cryptographic algorithms and a attacked would need to try to use brute force to decrypt
+the message.
