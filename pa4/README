@@ -1,0 +1,7 @@
+COLORIZATION: Intro to AI
+For this project we had to take a picture (has to have some decent color variations so I did beach
+pictures) and we had to take the five most prominent color in the pictures, then use this and recolor
+a black and white image of the same picture with the 5 most prominent colors. This required the use
+of training data to train the model to recolor the black and white picture as accuratley as possible.
+For the improved agent, the implementation of K-Mean++ was used to improve the final result of the
+recolored image. 
